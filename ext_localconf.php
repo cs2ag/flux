@@ -10,6 +10,10 @@ if (!is_array($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations
 	);
 }
 
+if (!is_array($TYPO3_CONF_VARS['SYS']['caching']['cacheConfigurations']['flux_preview_cache'])) {
+	$TYPO3_CONF_VARS['SYS']['caching']['cacheConfigurations']['flux_preview_cache'] = array();
+}
+
 \TYPO3\CMS\Extbase\Utility\ExtensionUtility::configurePlugin('FluidTYPO3.Flux', 'API', array('Flux' => 'renderChildContent'), array());
 
 \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::addTypoScript($_EXTKEY, 'setup', '
