@@ -203,39 +203,45 @@ class PreviewView {
 	 * @return string|NULL
 	 */
 	protected function renderPreviewSection(ProviderInterface $provider, array $row, Form $form = NULL) {
-		$templatePathAndFilename = $provider->getTemplatePathAndFilename($row);
-		if (NULL === $templatePathAndFilename) {
-			return NULL;
+		$cacheInstance = GeneralUtility::makeInstance('TYPO3\\CMS\\Core\\Cache\\CacheManager')->getCache('flux_preview_cache');
+		$cacheIdentifier = sha1(json_encode($row));
+		if (($previewContent = $cacheInstance->get($cacheIdentifier)) === FALSE) {		
+			$templatePathAndFilename = $provider->getTemplatePathAndFilename($row);
+			if (NULL === $templatePathAndFilename) {
+				return NULL;
+			}
+			$extensionKey = $provider->getExtensionKey($row);
+			$paths = $provider->getTemplatePaths($row);
+	
+			$flexformVariables = $provider->getFlexFormValues($row);
+			$templateVariables = $provider->getTemplateVariables($row);
+			$variables = RecursiveArrayUtility::merge($templateVariables, $flexformVariables);
+			$variables['row'] = $row;
+			$variables['record'] = $row;
+	
+			if (TRUE === is_object($form)) {
+				$formLabel = $form->getLabel();
+				$label = LocalizationUtility::translate($formLabel, $extensionKey);
+				$variables['label'] = $label;
+			}
+	
+			$templatePaths = new TemplatePaths($paths);
+			$viewContext = new ViewContext($templatePathAndFilename, $extensionKey, self::CONTROLLER_NAME);
+			$viewContext->setTemplatePaths($templatePaths);
+			$viewContext->setVariables($variables);
+			$view = $this->configurationService->getPreparedExposedTemplateView($viewContext);
+	
+			$existingContentObject = $this->configurationManager->getContentObject();
+			$contentObject = new ContentObjectRenderer();
+			$contentObject->start($row, $provider->getTableName($row));
+			$this->configurationManager->setContentObject($contentObject);
+			$previewContent = $view->renderStandaloneSection(self::PREVIEW_SECTION, $variables, TRUE);
+			$this->configurationManager->setContentObject($existingContentObject);
+			$previewContent = trim($previewContent);
+			if ($previewContent) {
+				$cacheInstance->set($cacheIdentifier, $previewContent, array(), 0);
+			}
 		}
-		$extensionKey = $provider->getExtensionKey($row);
-		$paths = $provider->getTemplatePaths($row);
-
-		$flexformVariables = $provider->getFlexFormValues($row);
-		$templateVariables = $provider->getTemplateVariables($row);
-		$variables = RecursiveArrayUtility::merge($templateVariables, $flexformVariables);
-		$variables['row'] = $row;
-		$variables['record'] = $row;
-
-		if (TRUE === is_object($form)) {
-			$formLabel = $form->getLabel();
-			$label = LocalizationUtility::translate($formLabel, $extensionKey);
-			$variables['label'] = $label;
-		}
-
-		$templatePaths = new TemplatePaths($paths);
-		$viewContext = new ViewContext($templatePathAndFilename, $extensionKey, self::CONTROLLER_NAME);
-		$viewContext->setTemplatePaths($templatePaths);
-		$viewContext->setVariables($variables);
-		$view = $this->configurationService->getPreparedExposedTemplateView($viewContext);
-
-		$existingContentObject = $this->configurationManager->getContentObject();
-		$contentObject = new ContentObjectRenderer();
-		$contentObject->start($row, $provider->getTableName($row));
-		$this->configurationManager->setContentObject($contentObject);
-		$previewContent = $view->renderStandaloneSection(self::PREVIEW_SECTION, $variables, TRUE);
-		$this->configurationManager->setContentObject($existingContentObject);
-		$previewContent = trim($previewContent);
-
 		return $previewContent;
 	}
 
